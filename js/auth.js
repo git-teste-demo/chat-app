@@ -1,208 +1,573 @@
-
 /* =========================================================
-   CHATLY — AUTHENTICATION FRONT-END
-   Interface de login e cadastro
+   CHATLY — AUTH
+   Cadastro, login, Google e recuperação de senha
 ========================================================= */
 
 (() => {
   "use strict";
 
-  const authPage = document.querySelector(".auth-page");
-  const authForm = document.getElementById("auth-form");
+  /* =======================================================
+     ELEMENTOS
+  ======================================================= */
 
-  const authTitle = document.getElementById("auth-title");
-  const authDescription = document.getElementById("auth-description");
+  const elements = {
+    form: document.getElementById("auth-form"),
 
-  const authSubmit = document.getElementById("auth-submit");
-  const authSubmitText = document.getElementById("auth-submit-text");
+    email: document.getElementById("auth-email"),
+    password: document.getElementById("auth-password"),
+    confirmPassword: document.getElementById("auth-confirm-password"),
 
-  const authSwitchText = document.getElementById("auth-switch-text");
-  const authSwitchButton = document.getElementById("auth-switch-button");
+    submitButton: document.getElementById("auth-submit"),
+    submitText: document.getElementById("auth-submit-text"),
 
-  const passwordInput = document.getElementById("auth-password");
-  const confirmPasswordInput = document.getElementById(
-    "auth-confirm-password"
-  );
+    googleButton: document.getElementById("google-login"),
+    forgotPassword: document.getElementById("forgot-password"),
 
-  const passwordToggle = document.getElementById("password-toggle");
-  const feedback = document.getElementById("auth-feedback");
+    feedback: document.getElementById("auth-feedback"),
 
-  const googleButton = document.getElementById("google-login");
-  const forgotPasswordButton = document.getElementById(
-    "forgot-password"
-  );
+    switchButton: document.getElementById("auth-switch-button"),
 
-  let signupMode = false;
+    passwordToggle: document.getElementById("password-toggle"),
 
-  /* =========================================================
-     FEEDBACK
-  ========================================================= */
+    title: document.getElementById("auth-title"),
+    description: document.getElementById("auth-description")
+  };
 
-  function showFeedback(message, type = "error") {
-    feedback.textContent = message;
+  /* =======================================================
+     FIREBASE
+  ======================================================= */
 
-    feedback.classList.toggle(
-      "success",
-      type === "success"
+  const firebaseServices = window.chatlyFirebase;
+
+  if (!firebaseServices) {
+    showFeedback(
+      "Não foi possível conectar ao Firebase. Recarregue a página.",
+      "error"
     );
+
+    console.error(
+      "Chatly: Firebase não foi inicializado."
+    );
+
+    return;
+  }
+
+  const auth = firebaseServices.auth;
+  const db = firebaseServices.db;
+
+  /* =======================================================
+     ESTADO
+  ======================================================= */
+
+  let isSignupMode = false;
+  let isProcessing = false;
+
+  /* =======================================================
+     FEEDBACK
+  ======================================================= */
+
+  function showFeedback(message, type = "info") {
+    if (!elements.feedback) {
+      alert(message);
+      return;
+    }
+
+    elements.feedback.textContent = message;
+
+    elements.feedback.classList.remove(
+      "success",
+      "error",
+      "info"
+    );
+
+    elements.feedback.classList.add(type);
+
+    elements.feedback.hidden = false;
   }
 
   function clearFeedback() {
-    feedback.textContent = "";
-    feedback.classList.remove("success");
+    if (!elements.feedback) return;
+
+    elements.feedback.textContent = "";
+
+    elements.feedback.classList.remove(
+      "success",
+      "error",
+      "info"
+    );
+
+    elements.feedback.hidden = true;
   }
 
-  /* =========================================================
-     LOGIN / SIGNUP MODE
-  ========================================================= */
+  /* =======================================================
+     MENSAGENS DE ERRO FIREBASE
+  ======================================================= */
 
-  function setAuthMode(isSignup) {
-    signupMode = isSignup;
+  function getFirebaseErrorMessage(error) {
+    const errorCode = error?.code || "";
 
-    authPage.classList.toggle(
+    const messages = {
+      "auth/email-already-in-use":
+        "Este e-mail já está cadastrado.",
+
+      "auth/invalid-email":
+        "Digite um endereço de e-mail válido.",
+
+      "auth/weak-password":
+        "A senha precisa ter pelo menos 6 caracteres.",
+
+      "auth/user-not-found":
+        "Não encontramos uma conta com este e-mail.",
+
+      "auth/wrong-password":
+        "A senha está incorreta.",
+
+      "auth/invalid-credential":
+        "E-mail ou senha incorretos.",
+
+      "auth/user-disabled":
+        "Esta conta foi desativada.",
+
+      "auth/too-many-requests":
+        "Muitas tentativas. Aguarde um pouco e tente novamente.",
+
+      "auth/network-request-failed":
+        "Falha de conexão. Verifique sua internet.",
+
+      "auth/popup-closed-by-user":
+        "A janela de login do Google foi fechada.",
+
+      "auth/popup-blocked":
+        "O navegador bloqueou a janela do Google. Permita pop-ups.",
+
+      "auth/cancelled-popup-request":
+        "Uma solicitação de login foi cancelada.",
+
+      "auth/account-exists-with-different-credential":
+        "Este e-mail já está associado a outro método de login.",
+
+      "auth/operation-not-allowed":
+        "Este método de login ainda não está ativado no Firebase.",
+
+      "auth/requires-recent-login":
+        "Entre novamente na sua conta para continuar."
+    };
+
+    return messages[errorCode] ||
+      "Não foi possível concluir a operação. Tente novamente.";
+  }
+
+  /* =======================================================
+     ESTADO DO BOTÃO
+  ======================================================= */
+
+  function setProcessing(processing) {
+    isProcessing = processing;
+
+    if (elements.submitButton) {
+      elements.submitButton.disabled = processing;
+    }
+
+    if (elements.googleButton) {
+      elements.googleButton.disabled = processing;
+    }
+
+    if (elements.submitText) {
+      elements.submitText.textContent = processing
+        ? "Aguarde..."
+        : isSignupMode
+          ? "Criar conta"
+          : "Entrar";
+    }
+  }
+
+  /* =======================================================
+     ALTERNAR LOGIN E CADASTRO
+  ======================================================= */
+
+  function updateAuthMode() {
+    document.body.classList.toggle(
       "signup-mode",
-      signupMode
+      isSignupMode
     );
 
-    document.querySelectorAll(".signup-only").forEach((element) => {
-      element.hidden = !signupMode;
-    });
+    document.querySelectorAll(".signup-only").forEach(
+      element => {
+        element.hidden = !isSignupMode;
+      }
+    );
 
-    authTitle.textContent = signupMode
-      ? "Create your account"
-      : "Welcome back";
+    document.querySelectorAll(".login-only").forEach(
+      element => {
+        element.hidden = isSignupMode;
+      }
+    );
 
-    authDescription.textContent = signupMode
-      ? "Crie sua conta e comece a conversar."
-      : "Entre na sua conta para continuar suas conversas.";
+    if (elements.title) {
+      elements.title.textContent = isSignupMode
+        ? "Criar sua conta"
+        : "Bem-vindo de volta";
+    }
 
-    authSubmitText.textContent = signupMode
-      ? "Criar minha conta"
-      : "Entrar na conta";
+    if (elements.description) {
+      elements.description.textContent = isSignupMode
+        ? "Crie sua conta para conversar com seus amigos."
+        : "Entre na sua conta para continuar.";
+    }
 
-    authSwitchText.textContent = signupMode
-      ? "Já possui uma conta?"
-      : "Ainda não tem uma conta?";
+    if (elements.submitText) {
+      elements.submitText.textContent = isSignupMode
+        ? "Criar conta"
+        : "Entrar";
+    }
 
-    authSwitchButton.textContent = signupMode
-      ? "Entrar"
-      : "Criar conta";
-
-    passwordInput.autocomplete = signupMode
-      ? "new-password"
-      : "current-password";
-
-    confirmPasswordInput.required = signupMode;
+    if (elements.password) {
+      elements.password.autocomplete = isSignupMode
+        ? "new-password"
+        : "current-password";
+    }
 
     clearFeedback();
   }
 
-  authSwitchButton.addEventListener("click", () => {
-    setAuthMode(!signupMode);
-  });
+  elements.switchButton?.addEventListener(
+    "click",
+    event => {
+      event.preventDefault();
 
-  /* =========================================================
-     PASSWORD VISIBILITY
-  ========================================================= */
+      if (isProcessing) return;
 
-  passwordToggle.addEventListener("click", () => {
-    const isPassword = passwordInput.type === "password";
+      isSignupMode = !isSignupMode;
 
-    passwordInput.type = isPassword
-      ? "text"
-      : "password";
+      updateAuthMode();
 
-    passwordToggle.innerHTML = isPassword
-      ? '<i class="fa-regular fa-eye-slash"></i>'
-      : '<i class="fa-regular fa-eye"></i>';
+      elements.password?.focus();
+    }
+  );
 
-    passwordToggle.setAttribute(
-      "aria-label",
-      isPassword ? "Ocultar senha" : "Mostrar senha"
+  /* =======================================================
+     MOSTRAR / OCULTAR SENHA
+  ======================================================= */
+
+  elements.passwordToggle?.addEventListener(
+    "click",
+    () => {
+      if (!elements.password) return;
+
+      const isPassword =
+        elements.password.type === "password";
+
+      elements.password.type = isPassword
+        ? "text"
+        : "password";
+
+      elements.passwordToggle.setAttribute(
+        "aria-label",
+        isPassword
+          ? "Ocultar senha"
+          : "Mostrar senha"
+      );
+
+      const icon = elements.passwordToggle.querySelector("i");
+
+      if (icon) {
+        icon.classList.toggle(
+          "fa-eye",
+          !isPassword
+        );
+
+        icon.classList.toggle(
+          "fa-eye-slash",
+          isPassword
+        );
+      }
+    }
+  );
+
+  /* =======================================================
+     CRIAR PERFIL NO FIRESTORE
+  ======================================================= */
+
+  async function createUserProfile(user) {
+    if (!user) return;
+
+    const userRef = db
+      .collection("users")
+      .doc(user.uid);
+
+    const userDocument = await userRef.get();
+
+    if (userDocument.exists) {
+      return;
+    }
+
+    const displayName =
+      user.displayName ||
+      user.email?.split("@")[0] ||
+      "Usuário";
+
+    await userRef.set({
+      uid: user.uid,
+      displayName: displayName,
+      username: null,
+      photoURL: user.photoURL || null,
+      email: user.email || null,
+      createdAt: firebaseServices.app.firestore
+        ? firebaseServices.app.firestore.FieldValue.serverTimestamp()
+        : firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
+  /* =======================================================
+     CADASTRO
+  ======================================================= */
+
+  async function signUp(email, password) {
+    const userCredential = await auth
+      .createUserWithEmailAndPassword(
+        email,
+        password
+      );
+
+    const user = userCredential.user;
+
+    try {
+      await createUserProfile(user);
+    } catch (error) {
+      console.error(
+        "Chatly: conta criada, mas o perfil não foi salvo.",
+        error
+      );
+    }
+
+    showFeedback(
+      "Conta criada com sucesso! Redirecionando...",
+      "success"
     );
-  });
 
-  /* =========================================================
-     FORM VALIDATION
-  ========================================================= */
+    window.location.href = "index.html";
+  }
 
-  authForm.addEventListener("submit", (event) => {
-    event.preventDefault();
+  /* =======================================================
+     LOGIN
+  ======================================================= */
 
-    clearFeedback();
+  async function signIn(email, password) {
+    await auth.signInWithEmailAndPassword(
+      email,
+      password
+    );
 
-    const email = document
-      .getElementById("auth-email")
-      .value
-      .trim();
+    showFeedback(
+      "Login realizado com sucesso! Redirecionando...",
+      "success"
+    );
 
-    const password = passwordInput.value;
+    window.location.href = "index.html";
+  }
 
-    if (!email || !password) {
-      showFeedback("Preencha todos os campos.");
-      return;
-    }
+  /* =======================================================
+     FORMULÁRIO
+  ======================================================= */
 
-    if (password.length < 6) {
-      showFeedback("A senha deve ter pelo menos 6 caracteres.");
-      return;
-    }
+  elements.form?.addEventListener(
+    "submit",
+    async event => {
+      event.preventDefault();
 
-    if (signupMode) {
-      const confirmPassword = confirmPasswordInput.value;
+      if (isProcessing) return;
 
-      if (password !== confirmPassword) {
-        showFeedback("As senhas não são iguais.");
-        confirmPasswordInput.focus();
+      clearFeedback();
+
+      const email = elements.email?.value
+        .trim()
+        .toLowerCase();
+
+      const password = elements.password?.value;
+
+      const confirmPassword =
+        elements.confirmPassword?.value;
+
+      if (!email || !password) {
+        showFeedback(
+          "Preencha o e-mail e a senha.",
+          "error"
+        );
+
         return;
       }
 
-      showFeedback(
-        "Interface pronta. A criação da conta será conectada ao Firebase na próxima etapa.",
-        "success"
-      );
+      if (isSignupMode) {
+        if (!confirmPassword) {
+          showFeedback(
+            "Confirme sua senha.",
+            "error"
+          );
 
-      return;
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          showFeedback(
+            "As senhas não coincidem.",
+            "error"
+          );
+
+          return;
+        }
+
+        if (password.length < 6) {
+          showFeedback(
+            "A senha precisa ter pelo menos 6 caracteres.",
+            "error"
+          );
+
+          return;
+        }
+      }
+
+      setProcessing(true);
+
+      try {
+        if (isSignupMode) {
+          await signUp(email, password);
+        } else {
+          await signIn(email, password);
+        }
+
+      } catch (error) {
+        console.error(
+          "Chatly: erro de autenticação.",
+          error
+        );
+
+        showFeedback(
+          getFirebaseErrorMessage(error),
+          "error"
+        );
+
+      } finally {
+        setProcessing(false);
+      }
     }
+  );
 
-    showFeedback(
-      "Interface pronta. O login será conectado ao Firebase na próxima etapa.",
-      "success"
-    );
-  });
+  /* =======================================================
+     LOGIN COM GOOGLE
+  ======================================================= */
 
-  /* =========================================================
-     GOOGLE LOGIN
-  ========================================================= */
+  elements.googleButton?.addEventListener(
+    "click",
+    async event => {
+      event.preventDefault();
 
-  googleButton.addEventListener("click", () => {
-    showFeedback(
-      "O login com Google será conectado ao Firebase na próxima etapa."
-    );
-  });
+      if (isProcessing) return;
 
-  /* =========================================================
-     PASSWORD RESET
-  ========================================================= */
+      clearFeedback();
 
-  forgotPasswordButton.addEventListener("click", () => {
-    const email = document
-      .getElementById("auth-email")
-      .value
-      .trim();
+      setProcessing(true);
 
-    if (!email) {
-      showFeedback(
-        "Digite seu e-mail para solicitar a recuperação da senha."
-      );
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
 
-      document.getElementById("auth-email").focus();
-      return;
+        provider.setCustomParameters({
+          prompt: "select_account"
+        });
+
+        const result = await auth.signInWithPopup(
+          provider
+        );
+
+        await createUserProfile(result.user);
+
+        showFeedback(
+          "Login com Google realizado! Redirecionando...",
+          "success"
+        );
+
+        window.location.href = "index.html";
+
+      } catch (error) {
+        console.error(
+          "Chatly: erro no login com Google.",
+          error
+        );
+
+        showFeedback(
+          getFirebaseErrorMessage(error),
+          "error"
+        );
+
+      } finally {
+        setProcessing(false);
+      }
     }
+  );
 
-    showFeedback(
-      "A recuperação de senha será conectada ao Firebase na próxima etapa."
-    );
+  /* =======================================================
+     RECUPERAÇÃO DE SENHA
+  ======================================================= */
+
+  elements.forgotPassword?.addEventListener(
+    "click",
+    async event => {
+      event.preventDefault();
+
+      clearFeedback();
+
+      const email = elements.email?.value
+        .trim()
+        .toLowerCase();
+
+      if (!email) {
+        showFeedback(
+          "Digite seu e-mail no campo acima para receber o link de recuperação.",
+          "info"
+        );
+
+        elements.email?.focus();
+
+        return;
+      }
+
+      try {
+        await auth.sendPasswordResetEmail(email);
+
+        showFeedback(
+          "Se existir uma conta com esse e-mail, você receberá um link para redefinir sua senha.",
+          "success"
+        );
+
+      } catch (error) {
+        console.error(
+          "Chatly: erro ao solicitar recuperação de senha.",
+          error
+        );
+
+        showFeedback(
+          getFirebaseErrorMessage(error),
+          "error"
+        );
+      }
+    }
+  );
+
+  /* =======================================================
+     USUÁRIO JÁ AUTENTICADO
+  ======================================================= */
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      window.location.replace("index.html");
+    }
   });
+
+  /* =======================================================
+     INICIALIZAÇÃO
+  ======================================================= */
+
+  updateAuthMode();
+
+  console.log("Chatly: autenticação inicializada.");
 
 })();
