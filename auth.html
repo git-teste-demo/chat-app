@@ -106,7 +106,7 @@
         <div class="auth-visual-footer">
 
           <span>PRIVATE CONVERSATIONS</span>
-          <span>•</span>
+          <span aria-hidden="true">•</span>
           <span>YOUR CONNECTIONS</span>
 
         </div>
@@ -218,6 +218,40 @@
 
             </div>
 
+            <!-- Username: signup only -->
+
+            <div class="auth-field signup-only" hidden>
+
+              <label for="auth-username">
+                Username
+              </label>
+
+              <div class="auth-input-wrapper">
+
+                <i class="fa-solid fa-at"></i>
+
+                <input
+                  type="text"
+                  id="auth-username"
+                  name="username"
+                  placeholder="seu_username"
+                  autocomplete="username"
+                  minlength="3"
+                  maxlength="20"
+                  pattern="[a-zA-Z0-9_]{3,20}"
+                  spellcheck="false"
+                  autocapitalize="none"
+                  disabled
+                />
+
+              </div>
+
+              <small class="auth-field-hint">
+                De 3 a 20 caracteres. Use letras, números ou _.
+              </small>
+
+            </div>
+
             <!-- Password -->
 
             <div class="auth-field">
@@ -286,6 +320,7 @@
                   placeholder="Digite sua senha novamente"
                   autocomplete="new-password"
                   minlength="6"
+                  disabled
                 />
 
               </div>
@@ -320,7 +355,7 @@
             >
 
               <span id="auth-submit-text">
-                Entrar na conta
+                Entrar
               </span>
 
               <i class="fa-solid fa-arrow-right"></i>
@@ -334,6 +369,7 @@
               id="auth-feedback"
               aria-live="polite"
               role="status"
+              hidden
             ></p>
 
           </form>
