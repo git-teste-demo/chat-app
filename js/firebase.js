@@ -1,4 +1,3 @@
-
 /* =========================================================
    CHATLY — FIREBASE INITIALIZATION
    Inicialização dos serviços Firebase
@@ -6,6 +5,22 @@
 
 (() => {
   "use strict";
+
+  /* =======================================================
+     VERIFICAR SDK
+  ======================================================= */
+
+  if (typeof firebase === "undefined") {
+    console.error(
+      "Chatly: SDK do Firebase não foi carregado."
+    );
+
+    return;
+  }
+
+  /* =======================================================
+     CONFIGURAÇÃO FIREBASE
+  ======================================================= */
 
   const firebaseConfig = {
     apiKey: "AIzaSyBuwIpz2zpNiP_I0L07i87XzPpxEtSO9S4",
@@ -17,25 +32,45 @@
     measurementId: "G-5D5GH6FTVW"
   };
 
-  /* =========================================================
-     INITIALIZE FIREBASE
-  ========================================================= */
+  /* =======================================================
+     INICIALIZAR FIREBASE
+  ======================================================= */
 
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    const app = firebase.app();
+
+    /* =====================================================
+       SERVIÇOS FIREBASE
+    ===================================================== */
+
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const storage = firebase.storage();
+
+    /* =====================================================
+       DISPONIBILIZAR SERVIÇOS PARA O CHATLY
+    ===================================================== */
+
+    window.chatlyFirebase = {
+      app,
+      auth,
+      db,
+      storage
+    };
+
+    console.log(
+      "Chatly: Firebase inicializado com sucesso."
+    );
+
+  } catch (error) {
+    console.error(
+      "Chatly: erro ao inicializar o Firebase.",
+      error
+    );
   }
-
-  /* =========================================================
-     FIREBASE SERVICES
-  ========================================================= */
-
-  window.chatlyFirebase = {
-    app: firebase.app(),
-    auth: firebase.auth(),
-    db: firebase.firestore(),
-    storage: firebase.storage()
-  };
-
-  console.log("Chatly: Firebase inicializado.");
 
 })();
