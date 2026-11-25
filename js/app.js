@@ -1,4 +1,3 @@
-```javascript
 /* =========================================================
    CHATLY — APP
    Interface, autenticação e interações iniciais
@@ -500,4 +499,4 @@
   initializeApp();
 
 })();
-```
+
