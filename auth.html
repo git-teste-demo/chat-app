@@ -1,0 +1,309 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#101114" />
+
+  <title>Chatly — Entrar ou criar conta</title>
+
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/auth.css" />
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  />
+</head>
+
+<body class="auth-body">
+
+  <main class="auth-page">
+
+    <section class="auth-visual">
+
+      <div class="auth-visual-content">
+
+        <a href="auth.html" class="auth-brand">
+          <span class="auth-brand-icon">
+            <i class="fa-solid fa-comments"></i>
+          </span>
+
+          <span>Chatly</span>
+        </a>
+
+        <div class="auth-visual-message">
+          <span class="auth-eyebrow">
+            YOUR SPACE. YOUR PEOPLE.
+          </span>
+
+          <h1>
+            Conversations
+            <span>that matter.</span>
+          </h1>
+
+          <p>
+            Um espaço para conversar, compartilhar momentos
+            e manter suas conexões sempre por perto.
+          </p>
+        </div>
+
+        <div class="auth-decoration">
+
+          <div class="decoration-orbit orbit-one"></div>
+          <div class="decoration-orbit orbit-two"></div>
+
+          <div class="decoration-message message-one">
+            <span class="decoration-avatar avatar-purple">
+              A
+            </span>
+
+            <div>
+              <strong>Alex</strong>
+              <span>Hey, how are you?</span>
+            </div>
+
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+
+          <div class="decoration-message message-two">
+            <span class="decoration-avatar avatar-blue">
+              M
+            </span>
+
+            <div>
+              <strong>Maria</strong>
+              <span>That sounds great!</span>
+            </div>
+          </div>
+
+          <div class="decoration-center">
+            <i class="fa-solid fa-comments"></i>
+          </div>
+
+        </div>
+
+        <div class="auth-visual-footer">
+          <span>PRIVATE CONVERSATIONS</span>
+          <span>•</span>
+          <span>YOUR CONNECTIONS</span>
+        </div>
+
+      </div>
+
+    </section>
+
+    <section class="auth-panel">
+
+      <div class="auth-panel-inner">
+
+        <div class="auth-mobile-brand">
+          <a href="auth.html" class="auth-brand">
+            <span class="auth-brand-icon">
+              <i class="fa-solid fa-comments"></i>
+            </span>
+
+            <span>Chatly</span>
+          </a>
+        </div>
+
+        <div class="auth-heading">
+
+          <span class="auth-heading-label">
+            WELCOME TO CHATLY
+          </span>
+
+          <h2 id="auth-title">
+            Welcome back
+          </h2>
+
+          <p id="auth-description">
+            Entre na sua conta para continuar suas conversas.
+          </p>
+
+        </div>
+
+        <div class="auth-form-container">
+
+          <button
+            type="button"
+            class="google-button"
+            id="google-login"
+          >
+            <span class="google-icon">
+              <i class="fa-brands fa-google"></i>
+            </span>
+
+            <span>Continue com Google</span>
+          </button>
+
+          <div class="auth-divider">
+            <span></span>
+            <p>ou continue com seu e-mail</p>
+            <span></span>
+          </div>
+
+          <form id="auth-form">
+
+            <div class="auth-field">
+
+              <label for="auth-email">
+                E-mail
+              </label>
+
+              <div class="auth-input-wrapper">
+
+                <i class="fa-regular fa-envelope"></i>
+
+                <input
+                  type="email"
+                  id="auth-email"
+                  name="email"
+                  placeholder="voce@exemplo.com"
+                  autocomplete="email"
+                  required
+                />
+
+              </div>
+
+            </div>
+
+            <div class="auth-field">
+
+              <div class="auth-label-row">
+
+                <label for="auth-password">
+                  Senha
+                </label>
+
+                <button
+                  type="button"
+                  class="auth-text-button"
+                  id="forgot-password"
+                >
+                  Esqueceu a senha?
+                </button>
+
+              </div>
+
+              <div class="auth-input-wrapper">
+
+                <i class="fa-solid fa-lock"></i>
+
+                <input
+                  type="password"
+                  id="auth-password"
+                  name="password"
+                  placeholder="Digite sua senha"
+                  autocomplete="current-password"
+                  minlength="6"
+                  required
+                />
+
+                <button
+                  type="button"
+                  class="password-toggle"
+                  id="password-toggle"
+                  aria-label="Mostrar senha"
+                >
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+
+              </div>
+
+            </div>
+
+            <div class="auth-field signup-only" hidden>
+
+              <label for="auth-confirm-password">
+                Confirmar senha
+              </label>
+
+              <div class="auth-input-wrapper">
+
+                <i class="fa-solid fa-lock"></i>
+
+                <input
+                  type="password"
+                  id="auth-confirm-password"
+                  name="confirm-password"
+                  placeholder="Digite sua senha novamente"
+                  autocomplete="new-password"
+                  minlength="6"
+                />
+
+              </div>
+
+            </div>
+
+            <div class="auth-remember-row login-only">
+
+              <label class="remember-label">
+                <input type="checkbox" id="remember-me" />
+
+                <span class="custom-checkbox"></span>
+
+                <span>Manter conectado</span>
+              </label>
+
+            </div>
+
+            <button
+              type="submit"
+              class="auth-submit-button"
+              id="auth-submit"
+            >
+              <span id="auth-submit-text">
+                Entrar na conta
+              </span>
+
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+
+            <p
+              class="auth-feedback"
+              id="auth-feedback"
+              aria-live="polite"
+            ></p>
+
+          </form>
+
+          <div class="auth-switch">
+
+            <span id="auth-switch-text">
+              Ainda não tem uma conta?
+            </span>
+
+            <button
+              type="button"
+              id="auth-switch-button"
+            >
+              Criar conta
+            </button>
+
+          </div>
+
+        </div>
+
+        <div class="auth-terms">
+
+          <p>
+            Ao continuar, você concorda com nossos
+            <a href="#" class="auth-terms-link">Termos de Uso</a>
+            e
+            <a href="#" class="auth-terms-link">Política de Privacidade</a>.
+          </p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <script src="js/auth.js"></script>
+
+</body>
+</html>
