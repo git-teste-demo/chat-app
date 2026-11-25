@@ -6,11 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#101114" />
 
+  <meta
+    name="description"
+    content="Entre no Chatly ou crie sua conta para conversar com seus amigos."
+  />
+
   <title>Chatly — Entrar ou criar conta</title>
 
+  <!-- CSS -->
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/auth.css" />
 
+  <!-- Font Awesome -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
@@ -21,19 +28,26 @@
 
   <main class="auth-page">
 
+    <!-- =====================================================
+         VISUAL PANEL
+    ====================================================== -->
+
     <section class="auth-visual">
 
       <div class="auth-visual-content">
 
         <a href="auth.html" class="auth-brand">
+
           <span class="auth-brand-icon">
             <i class="fa-solid fa-comments"></i>
           </span>
 
           <span>Chatly</span>
+
         </a>
 
         <div class="auth-visual-message">
+
           <span class="auth-eyebrow">
             YOUR SPACE. YOUR PEOPLE.
           </span>
@@ -47,6 +61,7 @@
             Um espaço para conversar, compartilhar momentos
             e manter suas conexões sempre por perto.
           </p>
+
         </div>
 
         <div class="auth-decoration">
@@ -55,6 +70,7 @@
           <div class="decoration-orbit orbit-two"></div>
 
           <div class="decoration-message message-one">
+
             <span class="decoration-avatar avatar-purple">
               A
             </span>
@@ -65,9 +81,11 @@
             </div>
 
             <i class="fa-solid fa-circle-check"></i>
+
           </div>
 
           <div class="decoration-message message-two">
+
             <span class="decoration-avatar avatar-blue">
               M
             </span>
@@ -76,6 +94,7 @@
               <strong>Maria</strong>
               <span>That sounds great!</span>
             </div>
+
           </div>
 
           <div class="decoration-center">
@@ -85,28 +104,42 @@
         </div>
 
         <div class="auth-visual-footer">
+
           <span>PRIVATE CONVERSATIONS</span>
           <span>•</span>
           <span>YOUR CONNECTIONS</span>
+
         </div>
 
       </div>
 
     </section>
 
+    <!-- =====================================================
+         AUTH PANEL
+    ====================================================== -->
+
     <section class="auth-panel">
 
       <div class="auth-panel-inner">
 
+        <!-- Mobile brand -->
+
         <div class="auth-mobile-brand">
+
           <a href="auth.html" class="auth-brand">
+
             <span class="auth-brand-icon">
               <i class="fa-solid fa-comments"></i>
             </span>
 
             <span>Chatly</span>
+
           </a>
+
         </div>
+
+        <!-- Heading -->
 
         <div class="auth-heading">
 
@@ -124,27 +157,43 @@
 
         </div>
 
+        <!-- Form container -->
+
         <div class="auth-form-container">
+
+          <!-- Google authentication -->
 
           <button
             type="button"
             class="google-button"
             id="google-login"
           >
+
             <span class="google-icon">
               <i class="fa-brands fa-google"></i>
             </span>
 
             <span>Continue com Google</span>
+
           </button>
 
+          <!-- Divider -->
+
           <div class="auth-divider">
+
             <span></span>
+
             <p>ou continue com seu e-mail</p>
+
             <span></span>
+
           </div>
 
-          <form id="auth-form">
+          <!-- Authentication form -->
+
+          <form id="auth-form" novalidate>
+
+            <!-- Email -->
 
             <div class="auth-field">
 
@@ -168,6 +217,8 @@
               </div>
 
             </div>
+
+            <!-- Password -->
 
             <div class="auth-field">
 
@@ -207,12 +258,16 @@
                   id="password-toggle"
                   aria-label="Mostrar senha"
                 >
+
                   <i class="fa-regular fa-eye"></i>
+
                 </button>
 
               </div>
 
             </div>
+
+            <!-- Confirm password: signup only -->
 
             <div class="auth-field signup-only" hidden>
 
@@ -237,37 +292,53 @@
 
             </div>
 
+            <!-- Remember account -->
+
             <div class="auth-remember-row login-only">
 
               <label class="remember-label">
-                <input type="checkbox" id="remember-me" />
+
+                <input
+                  type="checkbox"
+                  id="remember-me"
+                />
 
                 <span class="custom-checkbox"></span>
 
                 <span>Manter conectado</span>
+
               </label>
 
             </div>
+
+            <!-- Submit -->
 
             <button
               type="submit"
               class="auth-submit-button"
               id="auth-submit"
             >
+
               <span id="auth-submit-text">
                 Entrar na conta
               </span>
 
               <i class="fa-solid fa-arrow-right"></i>
+
             </button>
+
+            <!-- Feedback -->
 
             <p
               class="auth-feedback"
               id="auth-feedback"
               aria-live="polite"
+              role="status"
             ></p>
 
           </form>
+
+          <!-- Login / signup switch -->
 
           <div class="auth-switch">
 
@@ -286,13 +357,30 @@
 
         </div>
 
+        <!-- Terms -->
+
         <div class="auth-terms">
 
           <p>
+
             Ao continuar, você concorda com nossos
-            <a href="#" class="auth-terms-link">Termos de Uso</a>
+
+            <a
+              href="#"
+              class="auth-terms-link"
+            >
+              Termos de Uso
+            </a>
+
             e
-            <a href="#" class="auth-terms-link">Política de Privacidade</a>.
+
+            <a
+              href="#"
+              class="auth-terms-link"
+            >
+              Política de Privacidade
+            </a>.
+
           </p>
 
         </div>
@@ -302,6 +390,24 @@
     </section>
 
   </main>
+
+  <!-- =====================================================
+       FIREBASE SDK
+  ====================================================== -->
+
+  <script src="https://www.gstatic.com/firebasejs/13.3.0/firebase-app-compat.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/13.3.0/firebase-auth-compat.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore-compat.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/13.3.0/firebase-storage-compat.js"></script>
+
+  <!-- =====================================================
+       CHATLY SCRIPTS
+  ====================================================== -->
+
+  <script src="js/firebase.js"></script>
 
   <script src="js/auth.js"></script>
 
