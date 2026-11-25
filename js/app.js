@@ -1,7 +1,7 @@
-
+```javascript
 /* =========================================================
    CHATLY — APP
-   Interface inicial e interações
+   Interface, autenticação e interações iniciais
 ========================================================= */
 
 (() => {
@@ -33,17 +33,41 @@
 
     newConversationButton: document.getElementById("new-conversation"),
 
-    chatCount: document.getElementById("chat-count")
+    chatCount: document.getElementById("chat-count"),
+
+    userName: document.getElementById("user-name"),
+    userUsername: document.getElementById("user-username"),
+    userAvatar: document.getElementById("user-avatar"),
+
+    logoutButton: document.getElementById("logout-button")
   };
 
   /* =======================================================
-     ESTADO INICIAL
+     FIREBASE
+  ======================================================= */
+
+  const firebaseServices = window.chatlyFirebase;
+
+  if (!firebaseServices) {
+    console.error(
+      "Chatly: Firebase não foi inicializado. Verifique js/firebase.js."
+    );
+
+    return;
+  }
+
+  const auth = firebaseServices.auth;
+  const db = firebaseServices.db;
+
+  /* =======================================================
+     ESTADO
   ======================================================= */
 
   const state = {
     activeView: "chats",
     activeConversation: null,
-    selectedImage: null
+    selectedImage: null,
+    currentUser: null
   };
 
   /* =======================================================
@@ -51,24 +75,33 @@
   ======================================================= */
 
   function openSidebar() {
-    elements.sidebar.classList.add("open");
-    elements.sidebarOverlay.classList.add("visible");
+    elements.sidebar?.classList.add("open");
+    elements.sidebarOverlay?.classList.add("visible");
 
     document.body.style.overflow = "hidden";
   }
 
   function closeSidebar() {
-    elements.sidebar.classList.remove("open");
-    elements.sidebarOverlay.classList.remove("visible");
+    elements.sidebar?.classList.remove("open");
+    elements.sidebarOverlay?.classList.remove("visible");
 
     document.body.style.overflow = "";
   }
 
-  elements.sidebarToggle?.addEventListener("click", openSidebar);
+  elements.sidebarToggle?.addEventListener(
+    "click",
+    openSidebar
+  );
 
-  elements.sidebarClose?.addEventListener("click", closeSidebar);
+  elements.sidebarClose?.addEventListener(
+    "click",
+    closeSidebar
+  );
 
-  elements.sidebarOverlay?.addEventListener("click", closeSidebar);
+  elements.sidebarOverlay?.addEventListener(
+    "click",
+    closeSidebar
+  );
 
   /* =======================================================
      NAVEGAÇÃO
@@ -81,22 +114,17 @@
       const isActive = button.dataset.view === view;
 
       button.classList.toggle("active", isActive);
+
+      if (isActive) {
+        button.setAttribute("aria-current", "page");
+      } else {
+        button.removeAttribute("aria-current");
+      }
     });
 
     closeSidebar();
 
-    /*
-      Futuramente:
-
-      chats    -> lista de conversas
-      friends  -> lista de amigos
-      requests -> solicitações de amizade
-
-      A renderização dessas páginas será conectada
-      aos respectivos módulos.
-    */
-
-    console.log("Visual selecionado:", view);
+    console.log("Chatly: visual selecionado:", view);
   }
 
   elements.navigationItems.forEach(button => {
@@ -114,6 +142,10 @@
   ======================================================= */
 
   function searchConversations() {
+    if (!elements.conversationSearch || !elements.conversationList) {
+      return;
+    }
+
     const searchTerm = elements.conversationSearch.value
       .trim()
       .toLowerCase();
@@ -145,6 +177,22 @@
   );
 
   /* =======================================================
+     ATALHO DE BUSCA
+  ======================================================= */
+
+  document.addEventListener("keydown", event => {
+    const isSearchShortcut =
+      (event.ctrlKey || event.metaKey) &&
+      event.key.toLowerCase() === "k";
+
+    if (!isSearchShortcut) return;
+
+    event.preventDefault();
+
+    elements.conversationSearch?.focus();
+  });
+
+  /* =======================================================
      CAMPO DE MENSAGEM
   ======================================================= */
 
@@ -167,76 +215,76 @@
   );
 
   /* =======================================================
-     ATALHO ENTER
+     ENTER PARA ENVIAR
   ======================================================= */
 
-  elements.messageInput?.addEventListener("keydown", event => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
+  elements.messageInput?.addEventListener(
+    "keydown",
+    event => {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
 
-      /*
-        O envio será ativado quando o sistema
-        de mensagens estiver conectado.
-      */
+        /*
+          O envio será conectado ao Firestore
+          quando o sistema de mensagens for implementado.
+        */
+      }
     }
-  });
+  );
 
   /* =======================================================
      SELEÇÃO DE IMAGEM
   ======================================================= */
 
-  elements.attachImageButton?.addEventListener("click", () => {
-    elements.imageInput.click();
-  });
-
-  elements.imageInput?.addEventListener("change", event => {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    /*
-      Validação inicial do tipo de arquivo.
-    */
-
-    if (!file.type.startsWith("image/")) {
-      alert("Selecione um arquivo de imagem válido.");
-
-      elements.imageInput.value = "";
-
-      return;
+  elements.attachImageButton?.addEventListener(
+    "click",
+    () => {
+      if (elements.imageInput) {
+        elements.imageInput.click();
+      }
     }
+  );
 
-    /*
-      Limite visual inicial de 10 MB.
-      O limite definitivo também será validado
-      no Firebase Storage.
-    */
+  elements.imageInput?.addEventListener(
+    "change",
+    event => {
+      const file = event.target.files?.[0];
 
-    const maxSize = 10 * 1024 * 1024;
+      if (!file) return;
 
-    if (file.size > maxSize) {
-      alert("A imagem deve ter no máximo 10 MB.");
+      if (!file.type.startsWith("image/")) {
+        alert("Selecione um arquivo de imagem válido.");
 
-      elements.imageInput.value = "";
+        elements.imageInput.value = "";
 
-      return;
+        return;
+      }
+
+      const maxSize = 10 * 1024 * 1024;
+
+      if (file.size > maxSize) {
+        alert("A imagem deve ter no máximo 10 MB.");
+
+        elements.imageInput.value = "";
+
+        return;
+      }
+
+      state.selectedImage = file;
+
+      showImagePreview(file);
     }
-
-    state.selectedImage = file;
-
-    showImagePreview(file);
-  });
+  );
 
   /* =======================================================
      PRÉ-VISUALIZAÇÃO DE IMAGEM
   ======================================================= */
 
   function showImagePreview(file) {
-    const existingPreview = document.getElementById(
-      "image-preview"
-    );
-
-    existingPreview?.remove();
+    clearImagePreview();
 
     const preview = document.createElement("div");
 
@@ -246,7 +294,6 @@
     const image = document.createElement("img");
 
     image.alt = "Imagem selecionada";
-
     image.src = URL.createObjectURL(file);
 
     const removeButton = document.createElement("button");
@@ -263,14 +310,35 @@
       <i class="fa-solid fa-xmark"></i>
     `;
 
-    removeButton.addEventListener("click", () => {
-      clearSelectedImage();
-    });
+    removeButton.addEventListener(
+      "click",
+      clearSelectedImage
+    );
 
     preview.appendChild(image);
     preview.appendChild(removeButton);
 
-    elements.messageInput.parentElement.before(preview);
+    elements.messageInput?.parentElement?.before(preview);
+  }
+
+  /* =======================================================
+     LIMPAR PRÉ-VISUALIZAÇÃO
+  ======================================================= */
+
+  function clearImagePreview() {
+    const preview = document.getElementById(
+      "image-preview"
+    );
+
+    if (!preview) return;
+
+    const image = preview.querySelector("img");
+
+    if (image?.src.startsWith("blob:")) {
+      URL.revokeObjectURL(image.src);
+    }
+
+    preview.remove();
   }
 
   /* =======================================================
@@ -278,21 +346,13 @@
   ======================================================= */
 
   function clearSelectedImage() {
-    const preview = document.getElementById("image-preview");
-
-    if (preview) {
-      const image = preview.querySelector("img");
-
-      if (image?.src.startsWith("blob:")) {
-        URL.revokeObjectURL(image.src);
-      }
-
-      preview.remove();
-    }
+    clearImagePreview();
 
     state.selectedImage = null;
 
-    elements.imageInput.value = "";
+    if (elements.imageInput) {
+      elements.imageInput.value = "";
+    }
   }
 
   /* =======================================================
@@ -303,11 +363,6 @@
     "click",
     () => {
       changeView("friends");
-
-      /*
-        Futuramente, abrirá a busca de amigos
-        para iniciar uma nova conversa.
-      */
     }
   );
 
@@ -323,21 +378,126 @@
   );
 
   /* =======================================================
+     CARREGAR PERFIL DO FIRESTORE
+  ======================================================= */
+
+  async function loadUserProfile(user) {
+    if (!user) return;
+
+    try {
+      const userDocument = await db
+        .collection("users")
+        .doc(user.uid)
+        .get();
+
+      const profile = userDocument.exists
+        ? userDocument.data()
+        : {};
+
+      const displayName =
+        profile.displayName ||
+        user.displayName ||
+        "Usuário";
+
+      const username =
+        profile.username ||
+        "username";
+
+      const photoURL =
+        profile.photoURL ||
+        user.photoURL ||
+        "https://placehold.co/100x100/24232a/ffffff?text=U";
+
+      if (elements.userName) {
+        elements.userName.textContent = displayName;
+      }
+
+      if (elements.userUsername) {
+        elements.userUsername.textContent =
+          "@" + username;
+      }
+
+      if (elements.userAvatar) {
+        elements.userAvatar.src = photoURL;
+      }
+
+    } catch (error) {
+      console.error(
+        "Chatly: não foi possível carregar o perfil.",
+        error
+      );
+    }
+  }
+
+  /* =======================================================
+     SAIR DA CONTA
+  ======================================================= */
+
+  elements.logoutButton?.addEventListener(
+    "click",
+    async () => {
+      const confirmed = confirm(
+        "Tem certeza de que deseja sair da sua conta?"
+      );
+
+      if (!confirmed) return;
+
+      try {
+        await auth.signOut();
+
+        window.location.href = "auth.html";
+
+      } catch (error) {
+        console.error(
+          "Chatly: erro ao sair da conta.",
+          error
+        );
+
+        alert(
+          "Não foi possível sair da conta. Tente novamente."
+        );
+      }
+    }
+  );
+
+  /* =======================================================
+     AUTENTICAÇÃO
+  ======================================================= */
+
+  auth.onAuthStateChanged(
+    async user => {
+      if (!user) {
+        window.location.replace("auth.html");
+
+        return;
+      }
+
+      state.currentUser = user;
+
+      await loadUserProfile(user);
+
+      console.log(
+        "Chatly: usuário autenticado.",
+        user.uid
+      );
+    },
+    error => {
+      console.error(
+        "Chatly: erro ao verificar autenticação.",
+        error
+      );
+    }
+  );
+
+  /* =======================================================
      INICIALIZAÇÃO
   ======================================================= */
 
   function initializeApp() {
-    console.log("Chatly iniciado.");
-
-    /*
-      A autenticação Firebase será conectada
-      posteriormente.
-
-      Quando o usuário estiver autenticado,
-      o perfil e as conversas serão carregados.
-    */
+    console.log("Chatly: interface inicializada.");
   }
 
   initializeApp();
 
 })();
+```
