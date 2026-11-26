@@ -16,6 +16,7 @@
     email: document.getElementById("auth-email"),
     password: document.getElementById("auth-password"),
     confirmPassword: document.getElementById("auth-confirm-password"),
+    username: document.getElementById("auth-username"),
 
     submitButton: document.getElementById("auth-submit"),
     submitText: document.getElementById("auth-submit-text"),
@@ -54,6 +55,7 @@
 
   const auth = firebaseServices.auth;
   const db = firebaseServices.db;
+  const timestampForProfile = () => firebase.firestore.FieldValue.serverTimestamp();
 
   /* =======================================================
      ESTADO
@@ -226,6 +228,10 @@
         ? "new-password"
         : "current-password";
     }
+    if (elements.username) {
+      elements.username.disabled = !isSignupMode;
+      elements.username.required = isSignupMode;
+    }
 
     clearFeedback();
   }
@@ -288,7 +294,7 @@
      CRIAR PERFIL NO FIRESTORE
   ======================================================= */
 
-  async function createUserProfile(user) {
+  async function createUserProfile(user, requestedUsername = "") {
     if (!user) return;
 
     const userRef = db
@@ -301,20 +307,24 @@
       return;
     }
 
-    const displayName =
-      user.displayName ||
-      user.email?.split("@")[0] ||
-      "Usuário";
-
-    await userRef.set({
-      uid: user.uid,
-      displayName: displayName,
-      username: null,
-      photoURL: user.photoURL || null,
-      email: user.email || null,
-      createdAt: firebaseServices.app.firestore
-        ? firebaseServices.app.firestore.FieldValue.serverTimestamp()
-        : firebase.firestore.FieldValue.serverTimestamp()
+    const displayName = user.displayName || user.email?.split("@")[0] || "Usuário";
+    let username = String(requestedUsername || displayName).trim().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9_]/g, "_").replace(/^_+|_+$/g, "").slice(0, 20);
+    if (username.length < 3) username = "user_" + user.uid.slice(0, 8);
+    const usernameRef = db.collection("usernameIndex").doc(username);
+    await db.runTransaction(async transaction => {
+      const index = await transaction.get(usernameRef);
+      if (index.exists && index.data().uid !== user.uid) {
+        if (requestedUsername) throw new Error("USERNAME_TAKEN");
+        username = (username.slice(0, 11) + "_" + user.uid.slice(0, 8)).slice(0, 20);
+      }
+      transaction.set(db.collection("usernameIndex").doc(username), { uid: user.uid });
+      transaction.set(userRef, {
+        uid: user.uid, displayName, username,
+        photoURL: user.photoURL || null,
+        createdAt: timestampForProfile()
+      }, { merge: true });
     });
   }
 
@@ -322,7 +332,7 @@
      CADASTRO
   ======================================================= */
 
-  async function signUp(email, password) {
+  async function signUp(email, password, username) {
     const userCredential = await auth
       .createUserWithEmailAndPassword(
         email,
@@ -332,12 +342,11 @@
     const user = userCredential.user;
 
     try {
-      await createUserProfile(user);
+      await createUserProfile(user, username);
     } catch (error) {
-      console.error(
-        "Chatly: conta criada, mas o perfil não foi salvo.",
-        error
-      );
+      // Evita deixar uma conta recém-criada sem perfil/username reservado.
+      try { await user.delete(); } catch (_) { }
+      throw error;
     }
 
     showFeedback(
@@ -379,10 +388,8 @@
 
       clearFeedback();
 
-      const email = elements.email?.value
-        .trim()
-        .toLowerCase();
-
+      const email = elements.email?.value.trim().toLowerCase();
+      const username = elements.username?.value.trim().toLowerCase().replace(/^@/, "") || "";
       const password = elements.password?.value;
 
       const confirmPassword =
@@ -398,6 +405,11 @@
       }
 
       if (isSignupMode) {
+        if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+          showFeedback("O username deve ter 3–20 caracteres: letras, números ou _.", "error");
+          elements.username?.focus();
+          return;
+        }
         if (!confirmPassword) {
           showFeedback(
             "Confirme sua senha.",
@@ -430,7 +442,7 @@
 
       try {
         if (isSignupMode) {
-          await signUp(email, password);
+          await signUp(email, password, username);
         } else {
           await signIn(email, password);
         }
@@ -442,7 +454,7 @@
         );
 
         showFeedback(
-          getFirebaseErrorMessage(error),
+          error?.message === "USERNAME_TAKEN" ? "Esse username já está em uso. Escolha outro." : getFirebaseErrorMessage(error),
           "error"
         );
 

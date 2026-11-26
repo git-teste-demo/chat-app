@@ -1,502 +1,81 @@
-/* =========================================================
-   CHATLY — APP
-   Interface, autenticação e interações iniciais
-========================================================= */
-
+/* CHATLY — aplicação funcional (Firebase compat) */
 (() => {
-  "use strict";
-
-  /* =======================================================
-     ELEMENTOS
-  ======================================================= */
-
-  const elements = {
-    sidebar: document.getElementById("sidebar"),
-    sidebarToggle: document.getElementById("sidebar-toggle"),
-    sidebarClose: document.getElementById("sidebar-close"),
-    sidebarOverlay: document.getElementById("sidebar-overlay"),
-
-    conversationSearch: document.getElementById("conversation-search"),
-    conversationList: document.getElementById("conversation-list"),
-
-    navigationItems: document.querySelectorAll(".nav-item"),
-
-    messageInput: document.getElementById("message-input"),
-    sendButton: document.getElementById("send-message"),
-
-    attachImageButton: document.getElementById("attach-image"),
-    imageInput: document.getElementById("image-input"),
-
-    welcomeScreen: document.getElementById("welcome-screen"),
-    welcomeAddFriend: document.getElementById("welcome-add-friend"),
-
-    newConversationButton: document.getElementById("new-conversation"),
-
-    chatCount: document.getElementById("chat-count"),
-
-    userName: document.getElementById("user-name"),
-    userUsername: document.getElementById("user-username"),
-    userAvatar: document.getElementById("user-avatar"),
-
-    logoutButton: document.getElementById("logout-button")
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const el = {
+    sidebar:$('sidebar'), sidebarToggle:$('sidebar-toggle'), sidebarClose:$('sidebar-close'), overlay:$('sidebar-overlay'),
+    search:$('conversation-search'), list:$('conversation-list'), nav:[...document.querySelectorAll('.nav-item')],
+    input:$('message-input'), send:$('send-message'), attach:$('attach-image'), imageInput:$('image-input'),
+    messages:$('messages-area'), welcome:$('welcome-screen'), addFriend:$('welcome-add-friend'), newChat:$('new-conversation'),
+    chatCount:$('chat-count'), requestDot:$('request-indicator'), name:$('user-name'), username:$('user-username'), avatar:$('user-avatar'),
+    logout:$('logout-button'), contactName:$('contact-name'), contactStatus:$('contact-status'), contactAvatar:$('contact-avatar'),
+    settings:$('settings-button'), profileMenu:$('profile-menu-button'), searchMessages:$('search-messages'), details:$('contact-details'), composer:$('message-composer')
   };
-
-  /* =======================================================
-     FIREBASE
-  ======================================================= */
-
-  const firebaseServices = window.chatlyFirebase;
-
-  if (!firebaseServices) {
-    console.error(
-      "Chatly: Firebase não foi inicializado. Verifique js/firebase.js."
-    );
-
-    return;
-  }
-
-  const auth = firebaseServices.auth;
-  const db = firebaseServices.db;
-
-  /* =======================================================
-     ESTADO
-  ======================================================= */
-
-  const state = {
-    activeView: "chats",
-    activeConversation: null,
-    selectedImage: null,
-    currentUser: null
-  };
-
-  /* =======================================================
-     MOBILE SIDEBAR
-  ======================================================= */
-
-  function openSidebar() {
-    elements.sidebar?.classList.add("open");
-    elements.sidebarOverlay?.classList.add("visible");
-
-    document.body.style.overflow = "hidden";
-  }
-
-  function closeSidebar() {
-    elements.sidebar?.classList.remove("open");
-    elements.sidebarOverlay?.classList.remove("visible");
-
-    document.body.style.overflow = "";
-  }
-
-  elements.sidebarToggle?.addEventListener(
-    "click",
-    openSidebar
-  );
-
-  elements.sidebarClose?.addEventListener(
-    "click",
-    closeSidebar
-  );
-
-  elements.sidebarOverlay?.addEventListener(
-    "click",
-    closeSidebar
-  );
-
-  /* =======================================================
-     NAVEGAÇÃO
-  ======================================================= */
-
-  function changeView(view) {
-    state.activeView = view;
-
-    elements.navigationItems.forEach(button => {
-      const isActive = button.dataset.view === view;
-
-      button.classList.toggle("active", isActive);
-
-      if (isActive) {
-        button.setAttribute("aria-current", "page");
-      } else {
-        button.removeAttribute("aria-current");
-      }
-    });
-
-    closeSidebar();
-
-    console.log("Chatly: visual selecionado:", view);
-  }
-
-  elements.navigationItems.forEach(button => {
-    button.addEventListener("click", () => {
-      const view = button.dataset.view;
-
-      if (!view) return;
-
-      changeView(view);
-    });
-  });
-
-  /* =======================================================
-     BUSCA DE CONVERSAS
-  ======================================================= */
-
-  function searchConversations() {
-    if (!elements.conversationSearch || !elements.conversationList) {
-      return;
+  const fb = window.chatlyFirebase;
+  if (!fb) { alert('Firebase não inicializou. Confira js/firebase.js e a conexão.'); return; }
+  const {auth,db,storage} = fb;
+  const state = {user:null, profile:{}, view:'chats', conversations:[], friends:[], requests:[], active:null, messages:[], selectedImage:null, unsubChats:null, unsubMessages:null, unsubFriends:null, unsubRequests:null};
+  const timestamp = () => firebase.firestore.FieldValue.serverTimestamp();
+  const fallbackAvatar = 'https://placehold.co/100x100/24232a/ffffff?text=U';
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const notify = (msg, type='info') => { const n=document.createElement('div'); n.className='chatly-notice '+type; n.textContent=msg; Object.assign(n.style,{position:'fixed',zIndex:9999,bottom:'22px',left:'50%',transform:'translateX(-50%)',padding:'12px 18px',background:'#25252d',color:'#fff',border:'1px solid #454550',borderRadius:'12px',boxShadow:'0 8px 30px #0005',maxWidth:'90vw'}); document.body.append(n); setTimeout(()=>n.remove(),4000); };
+  const setBusy = (busy) => { if(el.send) el.send.disabled=busy||!state.active||(!el.input.value.trim()&&!state.selectedImage); };
+  function sidebar(open){ el.sidebar?.classList.toggle('open',open); el.overlay?.classList.toggle('visible',open); document.body.style.overflow=open?'hidden':''; }
+  el.sidebarToggle?.addEventListener('click',()=>sidebar(true)); el.sidebarClose?.addEventListener('click',()=>sidebar(false)); el.overlay?.addEventListener('click',()=>sidebar(false));
+  function setView(view){ state.view=view; el.nav.forEach(b=>{const active=b.dataset.view===view;b.classList.toggle('active',active);active?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current');}); sidebar(false); renderSidebar(); }
+  el.nav.forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+  function empty(text,icon='fa-comments'){return `<div class="empty-conversations"><i class="fa-regular ${icon}"></i><p>${esc(text)}</p></div>`;}
+  function renderSidebar(){
+    if(!el.list)return; const term=(el.search?.value||'').trim().toLowerCase();
+    if(state.view==='chats'){
+      el.chatCount.textContent=state.conversations.length;
+      const rows=state.conversations.filter(c=>(c.friend?.displayName||'').toLowerCase().includes(term)||(c.friend?.username||'').toLowerCase().includes(term));
+      el.list.innerHTML=rows.length?rows.map(c=>conversationRow(c)).join(''):empty(term?'Nenhuma conversa encontrada.':'Você ainda não tem conversas. Use + para encontrar amigos.');
+      el.list.querySelectorAll('[data-chat]').forEach(b=>b.addEventListener('click',()=>openConversation(b.dataset.chat)));
+    } else if(state.view==='friends'){
+      const friends=state.friends.filter(f=>(f.displayName||'').toLowerCase().includes(term)||(f.username||'').toLowerCase().includes(term));
+      el.list.innerHTML=`<div class="section-heading"><h3>Seus amigos</h3><button class="icon-button" id="find-friends" title="Encontrar pessoas"><i class="fa-solid fa-user-plus"></i></button></div>`+(friends.length?friends.map(f=>personRow(f,'Conversar','chat-friend')).join(''):empty('Nenhum amigo ainda. Clique em + para encontrar pessoas.'));
+      $('find-friends')?.addEventListener('click',findPeople); el.list.querySelectorAll('[data-friend]').forEach(b=>b.addEventListener('click',()=>startChat(b.dataset.friend)));
+    } else if(state.view==='requests'){
+      const req=state.requests.filter(r=>(r.sender?.displayName||'').toLowerCase().includes(term)||(r.sender?.username||'').toLowerCase().includes(term));
+      el.list.innerHTML=`<div class="section-heading"><h3>Solicitações recebidas</h3></div>`+(req.length?req.map(r=>`<div class="conversation-item request-row"><img class="conversation-avatar" src="${esc(r.sender?.photoURL||fallbackAvatar)}" alt=""><div class="conversation-details"><span class="conversation-name">${esc(r.sender?.displayName||'Usuário')}</span><span class="conversation-preview">@${esc(r.sender?.username||'')}</span></div><button class="icon-button" data-accept="${esc(r.id)}" title="Aceitar"><i class="fa-solid fa-check"></i></button><button class="icon-button" data-decline="${esc(r.id)}" title="Recusar"><i class="fa-solid fa-xmark"></i></button></div>`).join(''):empty('Você não tem solicitações pendentes.','fa-user-plus'));
+      el.list.querySelectorAll('[data-accept]').forEach(b=>b.addEventListener('click',()=>respondRequest(b.dataset.accept,true))); el.list.querySelectorAll('[data-decline]').forEach(b=>b.addEventListener('click',()=>respondRequest(b.dataset.decline,false)));
     }
-
-    const searchTerm = elements.conversationSearch.value
-      .trim()
-      .toLowerCase();
-
-    const conversations = elements.conversationList.querySelectorAll(
-      ".conversation-item"
-    );
-
-    conversations.forEach(conversation => {
-      const name = conversation
-        .querySelector(".conversation-name")
-        ?.textContent
-        .toLowerCase() || "";
-
-      const username = conversation.dataset.username
-        ?.toLowerCase() || "";
-
-      const matches =
-        name.includes(searchTerm) ||
-        username.includes(searchTerm);
-
-      conversation.style.display = matches ? "flex" : "none";
-    });
+    if(el.requestDot)el.requestDot.style.display=state.requests.length?'inline-block':'none';
   }
-
-  elements.conversationSearch?.addEventListener(
-    "input",
-    searchConversations
-  );
-
-  /* =======================================================
-     ATALHO DE BUSCA
-  ======================================================= */
-
-  document.addEventListener("keydown", event => {
-    const isSearchShortcut =
-      (event.ctrlKey || event.metaKey) &&
-      event.key.toLowerCase() === "k";
-
-    if (!isSearchShortcut) return;
-
-    event.preventDefault();
-
-    elements.conversationSearch?.focus();
-  });
-
-  /* =======================================================
-     CAMPO DE MENSAGEM
-  ======================================================= */
-
-  function resizeMessageInput() {
-    const input = elements.messageInput;
-
-    if (!input) return;
-
-    input.style.height = "auto";
-
-    input.style.height = Math.min(
-      input.scrollHeight,
-      150
-    ) + "px";
+  function conversationRow(c){return `<button type="button" class="conversation-item ${state.active?.id===c.id?'active':''}" data-chat="${esc(c.id)}"><img class="conversation-avatar" src="${esc(c.friend?.photoURL||fallbackAvatar)}" alt=""><span class="conversation-details"><span class="conversation-name">${esc(c.friend?.displayName||'Usuário')}</span><span class="conversation-preview">${esc(c.lastMessage||'Comece uma conversa')}</span></span></button>`;}
+  function personRow(p,label,attr){return `<button type="button" class="conversation-item" data-friend="${esc(p.uid)}"><img class="conversation-avatar" src="${esc(p.photoURL||fallbackAvatar)}" alt=""><span class="conversation-details"><span class="conversation-name">${esc(p.displayName||'Usuário')}</span><span class="conversation-preview">@${esc(p.username||'')}</span></span><span class="conversation-preview">${esc(label)}</span></button>`;}
+  el.search?.addEventListener('input',renderSidebar); document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();el.search?.focus();}});
+  function clearWelcome(){el.welcome?.remove();}
+  function setComposer(enabled){if(el.input)el.input.disabled=!enabled;if(el.attach)el.attach.disabled=!enabled;if(el.send)el.send.disabled=!enabled;}
+  async function openConversation(chatId){
+    const c=state.conversations.find(x=>x.id===chatId); if(!c)return; state.active=c; clearWelcome(); setComposer(true); el.contactName.textContent=c.friend?.displayName||'Conversa'; el.contactStatus.textContent='Conversa privada'; el.contactAvatar.src=c.friend?.photoURL||fallbackAvatar; renderSidebar(); sidebar(false);
+    if(state.unsubMessages)state.unsubMessages();
+    el.messages.querySelectorAll('.message-bubble,.messages-empty,.messages-loading').forEach(n=>n.remove());
+    const loading=document.createElement('p');loading.className='messages-loading';loading.textContent='Carregando mensagens…';el.messages.append(loading);
+    state.unsubMessages=db.collection('conversations').doc(chatId).collection('messages').orderBy('createdAt','asc').limit(300).onSnapshot(snapshot=>{loading.remove();state.messages=snapshot.docs.map(d=>({id:d.id,...d.data()}));renderMessages();},err=>{loading.remove();notify('Não foi possível carregar mensagens. Confira as regras do Firestore.','error');console.error(err);});
+    try{await db.collection('conversations').doc(chatId).update({[`unread.${state.user.uid}`]:0});}catch(_){ }
   }
-
-  elements.messageInput?.addEventListener(
-    "input",
-    resizeMessageInput
-  );
-
-  /* =======================================================
-     ENTER PARA ENVIAR
-  ======================================================= */
-
-  elements.messageInput?.addEventListener(
-    "keydown",
-    event => {
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey
-      ) {
-        event.preventDefault();
-
-        /*
-          O envio será conectado ao Firestore
-          quando o sistema de mensagens for implementado.
-        */
-      }
-    }
-  );
-
-  /* =======================================================
-     SELEÇÃO DE IMAGEM
-  ======================================================= */
-
-  elements.attachImageButton?.addEventListener(
-    "click",
-    () => {
-      if (elements.imageInput) {
-        elements.imageInput.click();
-      }
-    }
-  );
-
-  elements.imageInput?.addEventListener(
-    "change",
-    event => {
-      const file = event.target.files?.[0];
-
-      if (!file) return;
-
-      if (!file.type.startsWith("image/")) {
-        alert("Selecione um arquivo de imagem válido.");
-
-        elements.imageInput.value = "";
-
-        return;
-      }
-
-      const maxSize = 10 * 1024 * 1024;
-
-      if (file.size > maxSize) {
-        alert("A imagem deve ter no máximo 10 MB.");
-
-        elements.imageInput.value = "";
-
-        return;
-      }
-
-      state.selectedImage = file;
-
-      showImagePreview(file);
-    }
-  );
-
-  /* =======================================================
-     PRÉ-VISUALIZAÇÃO DE IMAGEM
-  ======================================================= */
-
-  function showImagePreview(file) {
-    clearImagePreview();
-
-    const preview = document.createElement("div");
-
-    preview.id = "image-preview";
-    preview.className = "image-preview";
-
-    const image = document.createElement("img");
-
-    image.alt = "Imagem selecionada";
-    image.src = URL.createObjectURL(file);
-
-    const removeButton = document.createElement("button");
-
-    removeButton.type = "button";
-    removeButton.className = "image-preview-remove";
-
-    removeButton.setAttribute(
-      "aria-label",
-      "Remover imagem selecionada"
-    );
-
-    removeButton.innerHTML = `
-      <i class="fa-solid fa-xmark"></i>
-    `;
-
-    removeButton.addEventListener(
-      "click",
-      clearSelectedImage
-    );
-
-    preview.appendChild(image);
-    preview.appendChild(removeButton);
-
-    elements.messageInput?.parentElement?.before(preview);
+  function renderMessages(){el.messages.querySelectorAll('.message-bubble,.messages-empty').forEach(n=>n.remove());if(!state.messages.length){const p=document.createElement('p');p.className='messages-empty';p.textContent='Nenhuma mensagem ainda. Diga olá!';el.messages.append(p);return;}const frag=document.createDocumentFragment();state.messages.forEach(m=>{const mine=m.senderId===state.user.uid;const box=document.createElement('article');box.className='message-bubble '+(mine?'message-own':'message-other');box.dataset.message=m.text||'';if(m.imageURL){const img=document.createElement('img');img.src=m.imageURL;img.alt='Imagem enviada';img.style.maxWidth='min(320px,65vw)';img.style.borderRadius='10px';img.style.display='block';box.append(img);}if(m.text){const p=document.createElement('p');p.textContent=m.text;box.append(p);}const small=document.createElement('small');small.textContent=m.createdAt?.toDate?m.createdAt.toDate().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Enviando…';box.append(small);frag.append(box);});el.messages.append(frag);el.messages.scrollTop=el.messages.scrollHeight;}
+  async function sendMessage(){if(!state.active||!state.user)return;const text=el.input.value.trim();const file=state.selectedImage;if(!text&&!file)return;setBusy(true);try{let imageURL=null;if(file){const path=`chat-images/${state.active.id}/${state.user.uid}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const ref=storage.ref().child(path);await ref.put(file,{contentType:file.type});imageURL=await ref.getDownloadURL();}const chatRef=db.collection('conversations').doc(state.active.id);await chatRef.collection('messages').add({text,imageURL,senderId:state.user.uid,senderName:state.profile.displayName||state.user.displayName||'Usuário',createdAt:timestamp()});await chatRef.set({lastMessage:text||(file?'📷 Imagem':'Mensagem'),lastMessageAt:timestamp(),lastSenderId:state.user.uid,updatedAt:timestamp()},{merge:true});el.input.value='';el.input.style.height='auto';clearSelectedImage();}catch(err){console.error(err);notify('Falha ao enviar. Verifique conexão e regras do Firebase.','error');}finally{setBusy(false);}}
+  el.send?.addEventListener('click',sendMessage);el.input?.addEventListener('input',()=>{el.input.style.height='auto';el.input.style.height=Math.min(el.input.scrollHeight,150)+'px';setBusy(false);});el.input?.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
+  function clearSelectedImage(){if(state.imagePreviewUrl)URL.revokeObjectURL(state.imagePreviewUrl);state.imagePreviewUrl=null;state.selectedImage=null;$('image-preview')?.remove();if(el.imageInput)el.imageInput.value='';setBusy(false);}
+  el.attach?.addEventListener('click',()=>el.imageInput?.click());el.imageInput?.addEventListener('change',()=>{const f=el.imageInput.files?.[0];if(!f)return;if(!f.type.startsWith('image/')){notify('Selecione um arquivo de imagem.','error');clearSelectedImage();return;}if(f.size>10*1024*1024){notify('A imagem deve ter no máximo 10 MB.','error');clearSelectedImage();return;}clearSelectedImage();state.selectedImage=f;state.imagePreviewUrl=URL.createObjectURL(f);const box=document.createElement('div');box.id='image-preview';box.className='image-preview';box.innerHTML=`<img src="${state.imagePreviewUrl}" alt="Prévia da imagem"><button type="button" aria-label="Remover imagem">×</button>`;box.querySelector('button').addEventListener('click',clearSelectedImage);el.input.parentElement.before(box);setBusy(false);});
+  async function findPeople(){const query=prompt('Digite o nome de usuário da pessoa (sem @):');if(!query?.trim())return;const q=query.trim().toLowerCase();try{const snap=await db.collection('users').where('username','==',q.replace(/^@/, '')).limit(8).get();const found=snap.docs.map(d=>d.data()).filter(u=>u.uid!==state.user.uid);if(!found.length){notify('Nenhum usuário encontrado. Confira o nome/e-mail.');return;}const chosen=found.length===1?found[0]:found.find(u=>confirm(`Encontramos ${u.displayName} (@${u.username}). Enviar solicitação?`));if(chosen)await sendFriendRequest(chosen);}catch(e){console.error(e);notify('Pesquisa falhou. Confira as regras do Firestore.','error');}}
+  async function sendFriendRequest(target){try{const friendDoc=await db.collection('users').doc(state.user.uid).collection('friends').doc(target.uid).get();if(friendDoc.exists){notify('Vocês já são amigos.');return;}const id=`${state.user.uid}_${target.uid}`;const ref=db.collection('friendRequests').doc(id);const existing=await ref.get();if(existing.exists&&existing.data().status==='pending'){notify('Solicitação já enviada.');return;}await ref.set({senderId:state.user.uid,receiverId:target.uid,status:'pending',createdAt:timestamp()});notify('Solicitação de amizade enviada!','success');}catch(e){console.error(e);notify('Não foi possível enviar a solicitação.','error');}}
+  async function respondRequest(id,accept){const req=state.requests.find(r=>r.id===id);if(!req)return;try{const batch=db.batch();const requestRef=db.collection('friendRequests').doc(id);batch.update(requestRef,{status:accept?'accepted':'declined',respondedAt:timestamp()});if(accept){const me=db.collection('users').doc(state.user.uid).collection('friends').doc(req.senderId);const other=db.collection('users').doc(req.senderId).collection('friends').doc(state.user.uid);batch.set(me,{uid:req.senderId,createdAt:timestamp()});batch.set(other,{uid:state.user.uid,createdAt:timestamp()});}await batch.commit();notify(accept?'Amizade adicionada!':'Solicitação recusada.',accept?'success':'info');}catch(e){console.error(e);notify('Não foi possível processar a solicitação.','error');}}
+  async function startChat(friendUid){try{const ids=[state.user.uid,friendUid].sort();const chatId=ids.join('_');const ref=db.collection('conversations').doc(chatId);await ref.set({participants:ids,createdAt:timestamp(),updatedAt:timestamp(),lastMessage:''},{merge:true});setView('chats');const existing=state.conversations.find(c=>c.id===chatId);if(existing)openConversation(chatId);else notify('Conversa criada. Ela aparecerá na lista em instantes.','success');}catch(e){console.error(e);notify('Não foi possível iniciar a conversa.','error');}}
+  async function loadFriendProfile(uid){const doc=await db.collection('users').doc(uid).get();return doc.exists?doc.data():{uid,displayName:'Usuário',photoURL:fallbackAvatar};}
+  function listenData(){const uid=state.user.uid;
+    state.unsubChats=db.collection('conversations').where('participants','array-contains',uid).onSnapshot(async snap=>{const rows=await Promise.all(snap.docs.map(async d=>{const data=d.data();const friendUid=(data.participants||[]).find(x=>x!==uid);return{id:d.id,...data,friend:friendUid?await loadFriendProfile(friendUid):{displayName:'Conversa'}};}));rows.sort((a,b)=>(b.updatedAt?.toMillis?.()||0)-(a.updatedAt?.toMillis?.()||0));state.conversations=rows;renderSidebar();},e=>{console.error(e);notify('Erro ao carregar conversas. Verifique as regras do Firestore.','error');});
+    state.unsubFriends=db.collection('users').doc(uid).collection('friends').onSnapshot(async snap=>{state.friends=await Promise.all(snap.docs.map(d=>loadFriendProfile(d.id)));renderSidebar();},e=>console.error('friends',e));
+    state.unsubRequests=db.collection('friendRequests').where('receiverId','==',uid).onSnapshot(async snap=>{state.requests=await Promise.all(snap.docs.filter(d=>d.data().status==='pending').map(async d=>({id:d.id,...d.data(),sender:await loadFriendProfile(d.data().senderId)})));renderSidebar();},e=>console.error('requests',e));
   }
-
-  /* =======================================================
-     LIMPAR PRÉ-VISUALIZAÇÃO
-  ======================================================= */
-
-  function clearImagePreview() {
-    const preview = document.getElementById(
-      "image-preview"
-    );
-
-    if (!preview) return;
-
-    const image = preview.querySelector("img");
-
-    if (image?.src.startsWith("blob:")) {
-      URL.revokeObjectURL(image.src);
-    }
-
-    preview.remove();
-  }
-
-  /* =======================================================
-     REMOVER IMAGEM
-  ======================================================= */
-
-  function clearSelectedImage() {
-    clearImagePreview();
-
-    state.selectedImage = null;
-
-    if (elements.imageInput) {
-      elements.imageInput.value = "";
-    }
-  }
-
-  /* =======================================================
-     NOVA CONVERSA
-  ======================================================= */
-
-  elements.newConversationButton?.addEventListener(
-    "click",
-    () => {
-      changeView("friends");
-    }
-  );
-
-  /* =======================================================
-     ADICIONAR AMIGO
-  ======================================================= */
-
-  elements.welcomeAddFriend?.addEventListener(
-    "click",
-    () => {
-      changeView("friends");
-    }
-  );
-
-  /* =======================================================
-     CARREGAR PERFIL DO FIRESTORE
-  ======================================================= */
-
-  async function loadUserProfile(user) {
-    if (!user) return;
-
-    try {
-      const userDocument = await db
-        .collection("users")
-        .doc(user.uid)
-        .get();
-
-      const profile = userDocument.exists
-        ? userDocument.data()
-        : {};
-
-      const displayName =
-        profile.displayName ||
-        user.displayName ||
-        "Usuário";
-
-      const username =
-        profile.username ||
-        "username";
-
-      const photoURL =
-        profile.photoURL ||
-        user.photoURL ||
-        "https://placehold.co/100x100/24232a/ffffff?text=U";
-
-      if (elements.userName) {
-        elements.userName.textContent = displayName;
-      }
-
-      if (elements.userUsername) {
-        elements.userUsername.textContent =
-          "@" + username;
-      }
-
-      if (elements.userAvatar) {
-        elements.userAvatar.src = photoURL;
-      }
-
-    } catch (error) {
-      console.error(
-        "Chatly: não foi possível carregar o perfil.",
-        error
-      );
-    }
-  }
-
-  /* =======================================================
-     SAIR DA CONTA
-  ======================================================= */
-
-  elements.logoutButton?.addEventListener(
-    "click",
-    async () => {
-      const confirmed = confirm(
-        "Tem certeza de que deseja sair da sua conta?"
-      );
-
-      if (!confirmed) return;
-
-      try {
-        await auth.signOut();
-
-        window.location.href = "auth.html";
-
-      } catch (error) {
-        console.error(
-          "Chatly: erro ao sair da conta.",
-          error
-        );
-
-        alert(
-          "Não foi possível sair da conta. Tente novamente."
-        );
-      }
-    }
-  );
-
-  /* =======================================================
-     AUTENTICAÇÃO
-  ======================================================= */
-
-  auth.onAuthStateChanged(
-    async user => {
-      if (!user) {
-        window.location.replace("auth.html");
-
-        return;
-      }
-
-      state.currentUser = user;
-
-      await loadUserProfile(user);
-
-      console.log(
-        "Chatly: usuário autenticado.",
-        user.uid
-      );
-    },
-    error => {
-      console.error(
-        "Chatly: erro ao verificar autenticação.",
-        error
-      );
-    }
-  );
-
-  /* =======================================================
-     INICIALIZAÇÃO
-  ======================================================= */
-
-  function initializeApp() {
-    console.log("Chatly: interface inicializada.");
-  }
-
-  initializeApp();
-
+  async function loadProfile(user){const d=await db.collection('users').doc(user.uid).get();state.profile=d.exists?d.data():{};const name=state.profile.displayName||user.displayName||user.email?.split('@')[0]||'Usuário';el.name.textContent=name;el.username.textContent='@'+(state.profile.username||'usuario');el.avatar.src=state.profile.photoURL||user.photoURL||fallbackAvatar;}
+  async function editProfile(){const name=prompt('Nome de exibição:',state.profile.displayName||state.user.displayName||'');if(name===null)return;const username=prompt('Nome de usuário (sem @):',state.profile.username||'');if(username===null)return;const photo=prompt('URL da foto de perfil (deixe vazio para manter):',state.profile.photoURL||'');if(photo===null)return;const photoURL=photo.trim()||state.profile.photoURL||state.user.photoURL||null;if(photoURL){try{const u=new URL(photoURL);if(!['https:','http:'].includes(u.protocol))throw new Error();}catch(_){notify('URL de foto inválida.','error');return;}}const normalized=username.trim().toLowerCase().replace(/^@/,'');if(!/^[a-z0-9_.]{3,20}$/.test(normalized)){notify('Username: 3–20 caracteres, letras, números, ponto ou _.','error');return;}try{const index=db.collection('usernameIndex').doc(normalized);await db.runTransaction(async tx=>{const current=await tx.get(index);if(current.exists&&current.data().uid!==state.user.uid)throw new Error('USERNAME_TAKEN');if(state.profile.username&&state.profile.username!==normalized)tx.delete(db.collection('usernameIndex').doc(state.profile.username));tx.set(index,{uid:state.user.uid});tx.set(db.collection('users').doc(state.user.uid),{uid:state.user.uid,displayName:name.trim()||'Usuário',username:normalized,photoURL,updatedAt:timestamp()},{merge:true});});await loadProfile(state.user);notify('Perfil atualizado!','success');}catch(e){notify(e.message==='USERNAME_TAKEN'?'Esse nome de usuário já está em uso.':'Não foi possível atualizar o perfil.','error');console.error(e);}}
+  el.profileMenu?.addEventListener('click',editProfile);el.settings?.addEventListener('click',()=>{const action=prompt('Configurações do Chatly\n\n1 — Editar perfil\n2 — Buscar amigos\n3 — Privacidade (informações)');if(action==='1')editProfile();else if(action==='2')findPeople();else if(action==='3')alert('As conversas são acessíveis somente aos participantes. Configure também as regras do Firestore e Storage conforme FIREBASE_RULES.md.');});el.newChat?.addEventListener('click',findPeople);el.addFriend?.addEventListener('click',findPeople);
+  el.searchMessages?.addEventListener('click',()=>{if(!state.active){notify('Abra uma conversa primeiro.');return;}const q=prompt('Buscar texto nas mensagens desta conversa:');if(q===null)return;const term=q.toLowerCase();let hits=state.messages.filter(m=>(m.text||'').toLowerCase().includes(term));notify(hits.length?`${hits.length} mensagem(ns) encontrada(s).`:'Nenhuma mensagem encontrada.');if(hits.length){const first=[...el.messages.querySelectorAll('.message-bubble')].find(n=>(n.dataset.message||'').toLowerCase().includes(term));first?.scrollIntoView({behavior:'smooth',block:'center'});}});
+  el.details?.addEventListener('click',()=>{if(!state.active){notify('Abra uma conversa primeiro.');return;}alert(`Contato: ${state.active.friend?.displayName||'Usuário'}\nUsername: @${state.active.friend?.username||'—'}\nID: ${state.active.friend?.uid||'—'}`);});
+  el.logout?.addEventListener('click',async()=>{if(!confirm('Deseja sair da sua conta?'))return;try{await auth.signOut();location.href='auth.html';}catch(e){notify('Erro ao sair.','error');}});
+  auth.onAuthStateChanged(async user=>{if(!user){location.replace('auth.html');return;}state.user=user;try{await loadProfile(user);listenData();}catch(e){console.error(e);notify('Não foi possível carregar sua conta.','error');}});
 })();
-
